@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1579118462500.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "F358AEBF",
+    "lastKnownWriteTime" : 8083810033997932402,
+    "last_content_update" : 1579118462500,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "id" : "65bded37538f4470baacd6a759e576d0",
+        "name" : "processed.MAE_mito",
+        "title" : "processed.MAE_mito"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "object_explorer"
+}

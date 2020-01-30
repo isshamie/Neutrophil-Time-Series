@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1572679083962.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "7DDF4EA3",
+    "lastKnownWriteTime" : 1572679107,
+    "last_content_update" : 1572679107837,
+    "path" : "/data2/isshamie/time_neutrophils/analysis/R/initial_monocle.R",
+    "project_path" : "analysis/R/initial_monocle.R",
+    "properties" : {
+        "cursorPosition" : "1,16",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

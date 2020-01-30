@@ -1,0 +1,38 @@
+stages:
+    - data
+    - umap
+    - cluster
+
+    
+# Global job settings. These will override settings of the same name in each of the stages.
+# These are typically the settings you want to modify for each of your jobs, together with some settings in the align stage.
+global:
+    PREFIX: preppi
+
+
+data:
+  filenames:
+    data: "/data2/isshamie/time_neutrophils/data/processed/data_df_z.p"
+
+
+umap:
+  to_run: True
+  overwrite: False
+  folder: "/data2/isshamie/time_neutrophils/results/umap_out/4/"
+  params:
+    min_neigbors: 0
+  filenames:
+    embedding: "/data2/isshamie/time_neutrophils/results/umap_out/4/embedding_2_500_0.p"
+
+cluster:
+    to_run: True
+    folder: "5"
+    params:
+      min_cluster_size: 30
+      min_sample: 50
+      method: hdb
+
+    filenames:
+      results: "hdbscan"
+      cluster_label_figure: "hdbscan"
+      cluster_results: "hdbscan.p"

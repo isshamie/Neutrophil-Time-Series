@@ -1,0 +1,33 @@
+"""make_data -> preprocess -> run_umap -> run_cluster -> plot_panels"""
+
+#raw_folder: data/raw/GSM3271867/
+#bam_f:
+#  Zhu_Single_Cell_10X_genomics_Human2_002_possorted_genome_bam.bam
+#name: Zhu_Single_Cell_10X_genomics_Human2_002
+
+#samples: "parameters/samples.tsv"
+
+
+
+raw:
+  Zhu_Single_Cell_10X_genomics_Human2_002: data/raw/GSM3271867
+
+
+bam:
+
+
+normalization:
+  - Quantile
+  - log10
+
+umap_neighbors:
+  - 200
+  - 15
+  - 100
+
+umap_minDistance:
+  - 0
+  - 0.1
+
+hdbscan_parameter:
+
