@@ -1,33 +1,50 @@
-"""make_data -> preprocess -> run_umap -> run_cluster -> plot_panels"""
+## Data preprocessing
+features:
+  - 'Cell Tracker Intensity'
+  - 'PI Intensity'
+  - 'AnexinV Intensity'
 
-#raw_folder: data/raw/GSM3271867/
-#bam_f:
-#  Zhu_Single_Cell_10X_genomics_Human2_002_possorted_genome_bam.bam
-#name: Zhu_Single_Cell_10X_genomics_Human2_002
+normalizations:
+  - "log10"
+#  - quantile
+#  - log10
+#  - Z
 
-#samples: "parameters/samples.tsv"
+## Reduction Technique:
+reduction: "umap"
 
+## Running UMAP
+n_subsample: 100
 
+n_iters: 3
 
-raw:
-  Zhu_Single_Cell_10X_genomics_Human2_002: data/raw/GSM3271867
-
-
-bam:
-
-
-normalization:
-  - Quantile
-  - log10
-
-umap_neighbors:
+min_neighbors:
   - 200
   - 15
   - 100
 
-umap_minDistance:
+min_distances:
   - 0
-  - 0.1
 
-hdbscan_parameter:
 
+## Cluster technique
+cluster_technique: 'hdb'
+min_cluster_size:
+  - 30
+  - 60
+min_sample:
+  - 100
+
+
+
+### Clustering
+#hdbscan_parameter:
+#    method: "hdb"
+
+#  filenames:
+#    results: "hdbscan"
+#    cluster_label_figure: "hdbscan"
+#    cluster_results: "hdbscan.p"
+#
+#  figures:
+#    results: "hdbscan"

@@ -11,7 +11,7 @@ import numpy as np
 # Dimension reduction and clustering libraries
 from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score
 from src.fig_utils import helper_save
-
+import click
 
 sns.set(style='white', rc={'figure.figsize':(10,8)})
 
@@ -134,9 +134,35 @@ def main(config):
     return
 
 
+
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+@click.command(context_settings=CONTEXT_SETTINGS)
+@click.argument('embedding_f',type=click.Path(exists=True))
+@click.argument('f_save',type=click.Path())
+@click.argument('f_save_fig',type=click.Path())
+@click.argument('cluster_type',type=click.STRING)
+@click.argument('min_sample',type=click.INT)
+@click.argument('min_cluster_size',type=click.INT)
+def main_commandline(embedding_f, f_save, f_save_fig, cluster_type, min_sample, min_cluster_size, test=None):
+    [data, _] = pickle.load(open(embedding_f,"rb"))
+    title = f"min_sample={min_sample} clust size={min_cluster_size}"
+    if cluster_type == "hdb":
+        labels = hdb_cluster(data, min_sample, min_cluster_size,
+                             f_save=f_save) #
+        plot_hdb(data, labels, f_save_fig=f_save_fig, title=title)
+    elif cluster_type == "phenograph":
+        print("TO DO ")
+        return
+    #write_config_file(os.path.join(p["cluster"]["data_folder"],"input.yaml"), p)
+
+    return
+
+
 if __name__ == '__main__':
-    config = os.path.join(PARAM_DIR, "params_sample_11.yaml")
-    main(config)
+    main_commandline()
+
+    # config = os.path.join(PARAM_DIR, "params_sample_11.yaml")
+    # main(config)
     # config = os.path.join(PARAM_DIR, "params_sample_10.yaml")
     # main(config)
     # config = os.path.join(PARAM_DIR, "params_sample_9.yaml")

@@ -6,13 +6,15 @@ import seaborn as sns
 import glob
 import time
 import os
+import sys
 from scipy.stats import zscore
 import pickle
 import threading
 import click
 import yaml
-
-
+from src.params import NUM_CORES
+from src.utils.config import write_config_file
+np.random.seed(42)
 # df = pickle.load(open("fc_z.p","rb"))
 # t1 = time.time()
 # reducer = umap.UMAP()
@@ -26,8 +28,55 @@ import yaml
 #     f.write(str(t2-t1))
 
 
+def prepare_data(data_f, meta_f, features=None):
+	""" Loads the sample annotation data and the processed data to use
+	features: If None, use all features. Otherwise, should be a list of columns variables to keep in data"""
+	df = pickle.load(open(data_f, "rb"))
+	meta = pd.read_csv(meta_f, sep="\t", index_col=0)
+	df = pd.concat((df, meta), axis=1)
+	if features is not None:
+		return df.loc[:, features]
+	else:
+		return df
+
+
+def subsample_and_run(data, n_iter, n_neighbors_l, min_distance_l, savedir, n_subsample, attrs=None, overwrite=True):
+	"""
+	Function that
+	 subsamples the data and runs umap a number of iterations and saving the output.
+	:param data: Data containing meta-data and full data. Output from prepare_data
+	:param n_iter: Number of simulations
+	:param n_neighbors_l: List of UMAP minimum_neighbor parameter values
+	:param min_distance_l: List of UMAP minimum_distance parameter values
+	:param savedir: Directory to save
+	:param n_subsample: Number of samples for each iteration.
+	:param attrs: Features of the data to keep. If None, will keep all.
+	:return:
+	"""
+	for i in range(n_iter):
+		print('i', i)
+		for neigh in n_neighbors_l:
+			print('number of neighbors', neigh)
+			for dist in min_distance_l:
+				print('minimum distance', dist)
+				# File name
+				curr_f_save = f"{savedir}/{neigh}_{dist}/embedding_{i}.p"
+				if  os.path.exists(curr_f_save) and not overwrite:
+					print(f"Already ran {curr_f_save}")
+				else:
+					print("Running")
+					# Collect samples
+					samples = data.groupby(
+						["Stimuli", "Genotype", "Timepoint"]).apply(
+						lambda x: x.sample(n=n_subsample).reset_index())
+					samples = samples.set_index("index")
+					run_umap_transform(samples, curr_f_save, neigh, dist, attrs)
+	return
+
+
 def run_umap(data, f_save=None, n_neighbors=100, min_distance=0,
 			 attrs=None):
+	""" Runs UMAP with specified parameters and saves the output along with the length of time it took."""
 	t1 = time.time()
 	reducer = umap.UMAP(n_neighbors=n_neighbors, min_dist=min_distance)
 	if attrs is not None:
@@ -43,8 +92,9 @@ def run_umap(data, f_save=None, n_neighbors=100, min_distance=0,
 	return
 
 
-def run_umap_transform(data, f_save=None, n_neighbors=100,
-					   min_distance=0, attrs=None):
+def run_umap_transform(data, f_save=None, n_neighbors=100, min_distance=0, attrs=None):
+	""" Runs UMAP with specified parameters and saves the output transformed data along with actual embeddings and
+	    the length of time it took. This will take longer than run_umap because it also receives the embedding."""
 	t1 = time.time()
 	reducer = umap.UMAP(n_neighbors=n_neighbors, min_dist=min_distance)
 	if attrs is not None:
@@ -60,7 +110,7 @@ def run_umap_transform(data, f_save=None, n_neighbors=100,
 			f.write(str(t2-t1))
 	return trans
 
-maximumNumberOfThreads = 4
+maximumNumberOfThreads = NUM_CORES
 threadLimiter = threading.BoundedSemaphore(maximumNumberOfThreads)
 
 
@@ -72,15 +122,72 @@ class EncodeThread(threading.Thread):
 		finally:
 			threadLimiter.release()
 
+#
+# CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+# @click.command(context_settings=CONTEXT_SETTINGS)
+# @click.argument('parameter')#, type=click.Path(exists=True))
+def main(data_f, meta_f, outdir, min_neighbor, min_distance, n_iter, n_subsample, features):
+	#params = yaml.load(parameter)
+	print('params',params)
+	print('type n_neighbors', type(n_neighbors_l))
+	data = prepare_data(data_f, meta_f)
+	subsample_and_run(data, int(n_iter), [int(min_neighbor)], [float(min_distance_l)], outdir, int(n_subsample), attrs=None)
+	write_config_file(outdir, params)
+	return
+
+
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument('parameter')#, type=click.Path(exists=True))
-def main(parameter):
-	yaml.load(parameter)
+def main_yaml(parameter):
+	""" TO DO"""
+	params = yaml.load(parameter)
+	return
+
+
+# params:
+# neighbors = min_neighbors,
+# distances = min_distances,
+# outdir = lambda wildcards, output: os.path.dirname(output),
+# n_iter = n_iters,
+# n_subsample = n_subsample
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+@click.command(context_settings=CONTEXT_SETTINGS)
+@click.argument('data_f',type=click.Path(exists=True))
+@click.argument('meta_f',type=click.Path(exists=True))
+@click.argument('outdir',type=click.Path())
+@click.argument('min_neighbor',type=click.INT)
+@click.argument('min_distance',type=click.FLOAT)
+@click.argument('n_subsample',type=click.INT)
+@click.option('--n_iter',default=3, type=click.INT)
+@click.option('--features',default='all', type=click.STRING)
+def main_command_line(data_f, meta_f, outdir, min_neighbor, min_distance, n_subsample, n_iter, features):
+	""" """
+	print("running umap")
+	data = prepare_data(data_f, meta_f)
+	if features == "intensity":
+		attrs =  ['Cell Tracker Intensity', 'PI Intensity','AnexinV Intensity']
+	else:
+		attrs = None
+	subsample_and_run(data, int(n_iter), [int(min_neighbor)], [float(min_distance)], outdir, int(n_subsample), attrs=attrs)
+	#write_config_file(outdir, params)
 	return
 
 
 if __name__ == "__main__":
-	main(["parameters/1.yaml"])
+	main_command_line()
 
+	# data_f = sys.argv[1]
+	# meta_f = sys.argv[2]
+	# min_neighbor = sys.argv[3]
+	# outdir = sys.argv[4]
+	# n_iter = sys.argv[5]
+	# n_subsample = sys.argv[6]
+	# features = sys.argv[7]
+	# #params = sys.argv[3]
+	#
+	# output = "results/{dim}_out/{min_neighbor}_{min_distance}/embedding_{sim}.p"
+	# main(data_f, meta_f, min_neighbor, outdir, n_iter, n_subsample, features)
+
+	#main(["parameters/1.yaml"])

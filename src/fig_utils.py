@@ -6,10 +6,11 @@ import os
 #################################################
 ### Plot helpers
 #################################################
-def helper_save(f_save, remove_bg=True):
+def helper_save(f_save, remove_bg=True, f=None):
     """ Function to save as png and svg if f_save is not None."""
     if remove_bg:
-        f = plt.gcf()
+        if f is None:
+            f = plt.gcf()
         f.patch.set_facecolor("w")
         axs = f.get_axes()
         for ax in axs:

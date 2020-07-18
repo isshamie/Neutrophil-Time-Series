@@ -2,9 +2,11 @@ from src.params import RAW_DIR, PROCESSED, Stimuli_Names
 import pandas as pd
 import glob
 from os.path import join, basename
+import sys
 
 
 def parse_file(f):
+    """Parsing file based on how its named. Use different function if parsed differently to get annotation data."""
     vals = basename(f).replace(".csv", "").replace(" ","").split("-")
     d = dict()
     d["Timepoint"] = int(vals[-1].replace("Timepoint", ""))
@@ -13,14 +15,17 @@ def parse_file(f):
     return d
 
 
-def create_dataframe(RAW_DIR, RESULTS):
+def create_dataframe(raw_dir, outdir):
     columns = ["Timepoint", "Stimuli", "Sample", "Cell Size",
                "Cell Circularity", "Cell Aspect Ratio",
                "Cell Tracker Intensity", "PI Intensity",
                "AnexinV Intensity"]
     data_df = pd.DataFrame(columns=columns)
 
-    for i in glob.glob(join(RAW_DIR, "*csv")):
+    if len(glob.glob(join(raw_dir, "*csv"))) == 0:
+        print(f"No data in folder {raw_dir}")
+        return
+    for i in glob.glob(join(raw_dir, "*csv")):
         print(i)
         d = parse_file(i)
         curr_df = pd.read_csv(i)
@@ -31,21 +36,24 @@ def create_dataframe(RAW_DIR, RESULTS):
             lambda x: str(x.name) + "_" + str(x["Sample"]) + "_" + x[
                 "Stimuli"] + "_" + str(x["Timepoint"]), axis=1)
         data_df = pd.concat((data_df, curr_df), sort=False)
-
-    data_df.to_csv(join(RESULTS,"fc.tsv"), sep="\t")
-    data_df = data_df.drop(["Sample", "Timepoint", "Stimuli"], axis=1)
+    if len(data_df) == 0:
+        print("No files here! Not saving")
     metadata = data_df[["Sample", "Timepoint", "Stimuli"]]
+    data_df = data_df.drop(["Sample", "Timepoint", "Stimuli"], axis=1)
+    data_df.to_csv(join(outdir, "fc.tsv"), sep="\t")
     metadata["Stimuli Names"] = metadata["Stimuli"].map(Stimuli_Names)
     metadata["Genotype"] = "WT"
     metadata.loc[metadata["Sample"].astype(int) >= 6, "Genotype"] = "Pad4KO"
-    metadata.to_csv(join(RESULTS, "meta.tsv"), sep="\t")
+    metadata.to_csv(join(outdir, "meta.tsv"), sep="\t")
     return
 
 
-def main():
-    create_dataframe(RAW_DIR, PROCESSED)
+def main(indir, outdir):
+    #create_dataframe(join(RAW_DIR,"fcs_output"), PROCESSED)
+    print(indir)
+    create_dataframe(indir,outdir)
     return
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1], sys.argv[2])

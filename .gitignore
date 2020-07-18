@@ -1,3 +1,6 @@
+ 
+old_versions/
+old_versions
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -77,11 +80,17 @@ target/
 
 # exclude data from source control by default
 /data/
+
+#Added by Isaac Shamie
 /results/
 /analysis/meta.tsv
 analysis/meta.tsv
+data/
+
 # pdf figures
 *pdf
+
+*pyc
 
 # Mac OS-specific storage files
 .DS_Store

@@ -15,26 +15,6 @@ import sys
 
 pandarallel.initialize(nb_workers=36)
 
-def log_and_z(data_df, data_dir, overwrite=False):
-    if not overwrite and os.path.exists(join(data_dir,"data_df_log10_z.p")):
-        return
-    ## Transformations
-    # data_df = pd.read_csv(join(data_dir, "fc.tsv"), sep="\t",
-    #                       index_col=0)
-    #
-    # data_df = data_df.drop(["Sample", "Timepoint", "Stimuli"], axis=1)
-
-    data_df_log = np.log10(data_df)
-    pickle.dump(data_df_log,
-                open(join(data_dir, "data_df_log10.p"), "wb"))
-
-    data_df_z = data_df.apply(zscore, axis=0)
-    pickle.dump(data_df_z, open(join(data_dir, "data_df_z.p"), "wb"))
-
-    data_df_log_z = data_df_log.apply(zscore, axis=0)
-    pickle.dump(data_df_log_z,
-                open(join(data_dir, "data_df_log10_z.p"), "wb"))
-    return
 
 
 def group_by_replicate(var, df):
@@ -115,22 +95,52 @@ def wrap_quantile_norm(data, vars, out_dir=None, perc=0.75):
     return data
 
 
-def main():
-    data_dir = PROCESSED
-    vars = ["Cell Size", "Cell Circularity", "Cell Aspect Ratio",
-            "Cell Tracker Intensity","PI Intensity", "AnexinV Intensity"]
+def log_and_z(data_df, outdir, overwrite=True):
+    if not overwrite:
+        if os.path.exists(join(outdir, "data_df_log10_z.p")) and (os.path.exists(join(outdir, "data_df_log10.p"))
+                and os.path.exists(join(outdir, "data_df_z.p"))):
+            return
     ## Transformations
-    data_df = pd.read_csv(join(data_dir, "fc.tsv"), sep="\t",
-                          index_col=0)
+    data_df_log = np.log10(data_df)
+    pickle.dump(data_df_log,
+                open(join(outdir, "data_df_log10.p"), "wb"))
 
-    #log_and_z(data_df.drop(["Sample", "Timepoint", "Stimuli"],
-    # axis=1), data_dir, overwrite=False)
+    data_df_z = data_df.apply(zscore, axis=0)
+    pickle.dump(data_df_z, open(join(outdir, "data_df_z.p"), "wb"))
 
-    wrap_quantile_norm(data_df, out_dir=data_dir,
-                       vars=vars)
+    data_df_log_z = data_df_log.apply(zscore, axis=0)
+    pickle.dump(data_df_log_z,
+                open(join(outdir, "data_df_log10_z.p"), "wb"))
     return
 
 
+def main(data, outdir, transform, overwrite=True):
+    # data_dir = PROCESSED
+    # vars = ["Cell Size", "Cell Circularity", "Cell Aspect Ratio",
+    #         "Cell Tracker Intensity","PI Intensity", "AnexinV Intensity"]
+
+    ## Transformations
+    data_df = pd.read_csv(data, sep="\t", index_col=0)
+    cols = ["Sample", "Timepoint", "Stimuli"]
+    cols = [c for c in cols if c in data_df.columns.values]
+
+    if (transform == "log10" or transform == "log10_z") or transform == "z":
+        log_and_z(data_df.drop(cols,
+            axis=1), outdir, overwrite=overwrite)
+        print("logging the data and z-scoring")
+    elif transform == "quantile":
+        vars = ["Cell Size", "Cell Circularity", "Cell Aspect Ratio",
+                "Cell Tracker Intensity","PI Intensity", "AnexinV Intensity"]
+        wrap_quantile_norm(data_df, out_dir=outdir,
+                           vars=vars)
+    return
+
+#python src/preprocess.py data/processed/fc.tsv data/processed/transform log10
+
 if __name__ == "__main__":
-    main()
+    data = sys.argv[1]
+    outdir = sys.argv[2]
+    transform = sys.argv[3]
+    print("outdir", outdir)
+    main(data, outdir, transform)
 

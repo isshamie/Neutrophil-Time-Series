@@ -8,7 +8,7 @@ stages:
 # Global job settings. These will override settings of the same name in each of the stages.
 # These are typically the settings you want to modify for each of your jobs, together with some settings in the align stage.
 global:
-    PREFIX: preppi
+    PREFIX:
 
 
 data:
@@ -38,7 +38,6 @@ cluster:
       results: "hdbscan"
       cluster_label_figure: "hdbscan"
       cluster_results: "hdbscan.p"
-
     figures:
       results: "hdbscan"
 

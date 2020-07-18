@@ -7,6 +7,7 @@ import os
 from src.params import PARAM_DIR, RESULTS, FIGURES_DIR
 from src.utils.config import read_config_file, write_config_file
 from src.fig_utils import helper_save
+import click
 
 
 def calc_percentages(data,cols=("Timepoint", "Stimuli Names",
@@ -20,7 +21,6 @@ def calc_percentages(data,cols=("Timepoint", "Stimuli Names",
 
 def plot_panel(data, f_save=None):
     """
-
     :param labels: 1d array corresponding to cluster labels
     :param index: 1d array corresponding to the actual raw data indices
     :param data: dataframe, which has the timepoint, stimuli,
@@ -37,14 +37,13 @@ def plot_panel(data, f_save=None):
     return g
 
 
-def create_panel(data_f, label_f, embedding_f, f_save=None):
-    data = pd.read_csv(data_f, sep="\t", index_col=0)
+def create_panel(meta_f, label_f, embedding_f, f_save=None):
+    meta = pd.read_csv(meta_f, sep="\t", index_col=0)
     [_, indices] = pickle.load(open(embedding_f,"rb"))
-    data = data.loc[indices]
 
+    data = meta.loc[indices]
     labels = pickle.load(open(label_f.replace(".p","")+".p",'rb'))
     data["Cluster"] = labels
-
     perc = calc_percentages(data, cols=("Timepoint", "Stimuli Names",
                                    "Genotype", "Sample"))
 
@@ -96,17 +95,31 @@ def main(config):
                  label_f=p["cluster"]["filenames"]["results"],
                  embedding_f = p["umap"]["filenames"]["embedding"],
                  f_save=p["plot_panels"]["figures"]["panel"])
-
     write_config_file(
         os.path.join(p["plot_panels"]["data_folder"], "input.yaml"), p)
     return
 
 
+
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+@click.command(context_settings=CONTEXT_SETTINGS)
+@click.argument('data_f',type=click.Path(exists=True))
+@click.argument('label_f',type=click.Path(exists=True))
+@click.argument('embedding_f',type=click.Path(exists=True))
+@click.argument('f_save',type=click.Path())
+def main_commandline(data_f,label_f, embedding_f,f_save):
+    print(data_f, label_f, embedding_f, f_save)
+    create_panel(data_f, label_f, embedding_f, f_save)
+    return
+
+
 if __name__ == "__main__":
-    config = os.path.join(PARAM_DIR, "params_sample_1.yaml")
+    main_commandline()
+    #config = os.path.join(PARAM_DIR, "params_sample_1.yaml")
     # config = os.path.join(PARAM_DIR,
     #                       "plot_cluster_params_sample_2.yaml")
-    main(config)
+   # main(config)
+
 
 
 #
