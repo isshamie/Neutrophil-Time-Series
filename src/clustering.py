@@ -12,29 +12,48 @@ import numpy as np
 from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score
 from src.fig_utils import helper_save
 import click
+from mplh.fig_utils import legend_from_color
+from mplh.color_utils import get_colors
 
 sns.set(style='white', rc={'figure.figsize':(10,8)})
 
 
 def plot_hdb(data, labels, f_save_fig=None, title=""):
     clustered = (labels >= 0)
-    plt.scatter(data[~clustered, 0],
-                data[~clustered, 1], c=(0.5, 0.5, 0.5),
-                s=0.1, alpha=0.5)
-    plt.scatter(data[clustered, 0],
-                data[clustered, 1], c=labels[clustered],
+
+
+    labels = list(map(lambda x: str(x), labels))  # labels[clustered]))
+    color_map, name_map =  get_colors('categorical', names = set(labels),
+                    n_colors=len(set(labels)),
+                    use_black=True, black_name = "-1", n_seq = 10)
+
+    label_colors = list(map(lambda x: color_map[x], labels))
+    # plt.scatter(data[~clustered, 0],
+    #             data[~clustered, 1], c=color_map["-1"],
+    #             s=0.1, alpha=0.5)
+    plt.scatter(data[:, 0],
+                data[:, 1], c=label_colors,
                 s=0.1, cmap='Spectral')
-    plt.title(title + f"\nFraction unclustered: {(labels == -1).sum()/len(labels)}")
-    plt.legend()
+
+    # plt.scatter(data[~clustered, 0],
+    #             data[~clustered, 1], c=(0.5, 0.5, 0.5),
+    #             s=0.1, alpha=0.5)
+    # plt.scatter(data[clustered, 0],
+    #             data[clustered, 1], c=labels[clustered],
+    #             s=0.1, cmap='Spectral')
+    plt.title(title + f"\nFraction unclustered: {(np.array(labels )== '-1').sum()/len(labels)}")
+    legend_from_color(color_map, plt.gca())
+
     helper_save(f_save_fig)
-    plt.close()
+    #plt.close()
     return
 
 
 def hdb_cluster(data, min_s_ratio, min_clust_ratio, f_save=None,
-                num_cores=None, min_s_num=None, min_clust_num=None,
-                clust_select='eom'):
+                num_cores=1, min_s_num=None, min_clust_num=None,
+                clust_select='eom', max_samps=100000):
     n_obs = data.shape[0]
+    print(n_obs)
     min_samples = int(n_obs/min_s_ratio)
     min_cluster_size = int(n_obs/min_clust_ratio)
 
@@ -43,9 +62,34 @@ def hdb_cluster(data, min_s_ratio, min_clust_ratio, f_save=None,
     if min_clust_num is not None:
         min_cluster_size = min_clust_num
 
-    print(clust_select)
+    print('cluster method:', clust_select)
+
+    # if n_subsamp != None:
+    #     data.sample
     # Assume needs to have
-    if num_cores is not None:
+
+    if data.shape[0] > max_samps:
+        print("Subsampling")
+        full_data = data.copy()
+        data = data[np.random.choice(data.shape[0], max_samps, replace=False), :]
+        min_samples = int(data.shape[0] / min_s_ratio)
+        min_cluster_size = int(data.shape[0] / min_clust_ratio)
+        clusterer = hdbscan.HDBSCAN(min_samples=min_samples,
+                                 min_cluster_size=min_cluster_size,
+                                 core_dist_n_jobs=num_cores,
+                                 cluster_selection_method=clust_select,
+                                 prediction_data=True
+                                 ).fit(data)
+
+        labels, _ = hdbscan.approximate_predict(clusterer, full_data)
+        print(labels)
+        if f_save is not None:
+            f_save = f_save.replace(".p", "") + ".p"
+            pickle.dump(labels, open(f_save, "wb"))
+        return labels
+
+    print("Number of cores", num_cores)
+    if num_cores is not None and num_cores != 1:
         labels = hdbscan.HDBSCAN(min_samples=min_samples,
                                  min_cluster_size=min_cluster_size,
                                  core_dist_n_jobs=num_cores,cluster_selection_method=clust_select
@@ -58,6 +102,22 @@ def hdb_cluster(data, min_s_ratio, min_clust_ratio, f_save=None,
         f_save = f_save.replace(".p", "") + ".p"
         pickle.dump(labels, open(f_save, "wb"))
     return labels
+
+
+
+def phenograph_cluster(data, f_save=None, max_samps=None):
+    import phenograph
+    if max_samps is not None and data.shape[0] > max_samps:
+        print("Subsampling")
+        #full_data = data.copy()
+        data = data[np.random.choice(data.shape[0], max_samps, replace=False), :]
+
+    communities, graph, Q = phenograph.cluster(data, k=100)
+    print(communities)
+    if f_save is not None:
+        f_save = f_save.replace(".p", "") + ".p"
+        pickle.dump(communities, open(f_save, "wb"))
+    return communities
 
 
 def compute_cluster_purity(target, predict):
@@ -99,8 +159,6 @@ def run(p, test=None):
         else:
             title = f"min_sample={min_sample} clust size={min_cluster_size}"
         plot_hdb(data, labels, f_save_fig=f_save_fig, title=title)
-
-
     write_config_file(os.path.join(p["cluster"]["data_folder"],"input.yaml"), p)
     return
 
@@ -120,7 +178,6 @@ def main(config):
     p["cluster"]["filenames"]["cluster_label_figure"] = os.path.join(
         stage_p["figure_folder"], stage_p["filenames"]["results"])
 
-
     if not os.path.exists(os.path.join(RESULTS,"cluster")):
         os.mkdir(os.path.join(RESULTS,"cluster"))
     if not os.path.exists(os.path.join(FIGURES_DIR,"cluster")):
@@ -132,7 +189,6 @@ def main(config):
         os.mkdir(p["cluster"]["figure_folder"])
     run(p)
     return
-
 
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
@@ -151,7 +207,10 @@ def main_commandline(embedding_f, f_save, f_save_fig, cluster_type, min_sample, 
                              f_save=f_save) #
         plot_hdb(data, labels, f_save_fig=f_save_fig, title=title)
     elif cluster_type == "phenograph":
-        print("TO DO ")
+        print("phenograph ")
+        labels = phenograph_cluster(data, f_save=f_save)
+        plot_hdb(data, labels, f_save_fig=f_save_fig, title=title)
+
         return
     #write_config_file(os.path.join(p["cluster"]["data_folder"],"input.yaml"), p)
 

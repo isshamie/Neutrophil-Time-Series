@@ -1,0 +1,71 @@
+## Raw data:
+raw_dir: "raw/kawasaki/FCS Files/"
+
+prefix: "kawasaki/test_run/ab"
+
+tidy_name: "tidy"
+
+wells:
+  - A01
+  - A02
+  - A04
+  - B01
+  - B02
+  - B04
+  - A07
+
+name:
+  start: "Test Run\ -\ "
+  end: ".csv"
+
+## Data preprocessing
+features:
+#  - 'Cell Tracker Intensity'
+#  - 'PI Intensity'
+#  - 'AnexinV Intensity'
+
+
+normalizations:
+  - "log10"
+#  - quantile
+#  - log10
+#  - Z
+
+## Reduction Technique:
+reduction: "umap"
+
+## Running UMAP
+n_subsample: 100
+
+n_iters: 3
+
+min_neighbors:
+  - 200
+  - 15
+  - 100
+
+min_distances:
+  - 0
+
+
+## Cluster technique
+cluster_technique: 'hdb'
+min_cluster_size:
+  - 30
+  - 60
+min_sample:
+  - 100
+
+
+
+### Clustering
+#hdbscan_parameter:
+#    method: "hdb"
+
+#  filenames:
+#    results: "hdbscan"
+#    cluster_label_figure: "hdbscan"
+#    cluster_results: "hdbscan.p"
+#
+#  figures:
+#    results: "hdbscan"

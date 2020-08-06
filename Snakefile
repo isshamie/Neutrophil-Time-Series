@@ -3,7 +3,9 @@ import pandas as pd
 from snakemake.utils import validate
 import numpy as np
 from src import run_umap
-configfile: "parameters/parameters_snakemake_001.yaml"
+#configfile: "parameters/parameters_snakemake_001.yaml"
+
+
 #from src.utils import logs
 
 # samples = pd.read_table(config["samples"], dtype=str).set_index(["sample"], drop=False)
@@ -28,15 +30,19 @@ min_sample = config["min_sample"]
 
 #report: "report/workflow.rst"
 
+prefix = [config["prefix"]]
+
+
 rule all:
     input:
-        expand("figures/panels/{norm}/{dim}_out/{min_neighbor}_{min_distance}/{cluster}_out/{min_sample}_{min_cluster_size}/clusters_over_time.png", dim=reduct_technique, sim=n_iters,norm=normalizations,
+        expand("figures/{prefix}/{norm}/{dim}_out/{min_neighbor}_{min_distance}/sim{sim}/umap_stimuli.png", prefix=prefix, dim=reduct_technique, sim=n_iters, min_neighbor=min_neighbors, min_distance=min_distances, norm=normalizations),
+
+        expand("figures/{prefix}/panels/{norm}/{dim}_out/{min_neighbor}_{min_distance}/{cluster}_out/{min_sample}_{min_cluster_size}/clusters_over_time.png", prefix=prefix, dim=reduct_technique, sim=n_iters,norm=normalizations,
                                                                                                                               min_neighbor=min_neighbors, min_distance=min_distances,
                                                                                                                               features=features, cluster=cluster, min_sample=min_sample, min_cluster_size=min_cluster_size),
         # "data/processed/fc.tsv",
         # expand("data/processed/transform/data_df_{norm}.p", norm=normalizations),
         # expand("results/{norm}/{dim}_out/{min_neighbor}_{min_distance}/embedding_{sim}.p", dim=reduct_technique, sim=n_iters, min_neighbor=min_neighbors, min_distance=min_distances, norm=normalizations),
-        expand("figures/{norm}/{dim}_out/{min_neighbor}_{min_distance}/sim{sim}/umap_stimuli.png", dim=reduct_technique, sim=n_iters, min_neighbor=min_neighbors, min_distance=min_distances, norm=normalizations),
         # expand("results/{norm}/{dim}_out/{min_neighbor}_{min_distance}/{cluster}_out/{min_sample}_{min_cluster_size}.p",dim=reduct_technique, sim=n_iters, min_neighbor=min_neighbors, min_distance=min_distances, norm=normalizations,
         #                                                                                                                         cluster=cluster, min_sample=min_sample, min_cluster_size=min_cluster_size),
         # expand("figures/panels/{min_sample}_{min_cluster_size}/{cluster}_out/{min_neighbor}_{min_distance}/{dim}_out/{norm}/cluster_over_time.png", dim=reduct_technique, sim=n_iters,norm=normalizations,
@@ -58,19 +64,20 @@ rule all:
 #make_data -> preprocess -> run_umap -> run_cluster -> plot_panels
 rule tidy_data:
     """Go from raw data folder where each snapshot is its own csv file, to one big file"""
-    input: "data/raw/fcs output"
+    input: "data/raw/{prefix}/fcs output"
     output:
-        "data/processed/fc.tsv",
-        "data/processed/meta.tsv"
-    shell: "python src/make_data.py {input:q} data/processed/"
+        "data/processed/{prefix}/tidy/fc.tsv",
+        "data/processed/{prefix}/tidy/meta.tsv"
+    params: "data/processed/{prefix}/"
+    shell: "python src/make_data.py {input:q} {params}"
 
 
 rule normalize_data:
     """Normalize the data according to norm"""
     input:
-        data_f = "data/processed/fc.tsv",
-        meta_f = "data/processed/meta.tsv"
-    output: "data/processed/transform/data_df_{norm}.p"
+        data_f = "data/processed/{prefix}/tidy/fc.tsv",
+        meta_f = "data/processed/{prefix}/tidy/meta.tsv"
+    output: "data/processed/{prefix}/transform/data_df_{norm}.p"
     params:
         outdir = lambda wildcards, output: os.path.dirname(str(output)),
     shell: "python src/preprocess.py {input.data_f} {params.outdir} {wildcards.norm}"
@@ -79,50 +86,56 @@ rule normalize_data:
 rule run_umap:
     #"""Run umap"""
     input:
-         data_f = "data/processed/transform/data_df_{norm}.p",
-         meta_f = "data/processed/meta.tsv"
+         data_f = "data/processed/{prefix}/transform/data_df_{norm}.p",
+         meta_f = "data/processed/{prefix}/tidy/meta.tsv"
     output:
-        "results/{norm}/{dim}_out/{min_neighbor}_{min_distance}/embedding_{sim}.p"
+        "results/{prefix}/{norm}/{dim}_out/{min_neighbor}_{min_distance}/embedding_{sim}.p"
     params:
-        outdir = lambda wildcards:  f"results/{wildcards.norm}/{wildcards.dim}_out", # output: os.path.dirname(str(output)),
+        outdir = lambda wildcards:  f"results/{wildcards.prefix}/{wildcards.norm}/{wildcards.dim}_out", # output: os.path.dirname(str(output)),
         n_iter = config["n_iters"],
         n_subsample = n_subsample,
-        features = "intensity"
-    shell: "python src/run_umap.py {input.data_f} {input.meta_f} {params.outdir} {wildcards.min_neighbor} {wildcards.min_distance} {params.n_subsample} --n_iter {params.n_iter} --features {params.features}"
+        #features = "intensity"
+    resources:
+        mem_mb=50000
+    shell: "python src/run_umap.py {input.data_f} {input.meta_f} {params.outdir} {wildcards.min_neighbor} {wildcards.min_distance} {params.n_subsample} --n_iter {params.n_iter} --embed {wildcards.dim}"
 
 
 rule plot_umap:
     input:
-        data_f = "data/processed/transform/data_df_{norm}.p",
-        meta_f = "data/processed/meta.tsv",
-        umap_f = "results/{norm}/{dim}_out/{min_neighbor}_{min_distance}/embedding_{sim}.p"
+        data_f = "data/processed/{prefix}/transform/data_df_{norm}.p",
+        meta_f = "data/processed/{prefix}/tidy/meta.tsv",
+        umap_f = "results/{prefix}/{norm}/{dim}_out/{min_neighbor}_{min_distance}/embedding_{sim}.p"
     output:
-        stim_fig = "figures/{norm}/{dim}_out/{min_neighbor}_{min_distance}/sim{sim}/umap_stimuli.png",
+        stim_fig = "figures/{prefix}/{norm}/{dim}_out/{min_neighbor}_{min_distance}/sim{sim}/umap_stimuli.png",
     params:
-        fig_dir = lambda wildcards: f"figures/{wildcards.norm}/{wildcards.dim}_out/{wildcards.min_neighbor}_{wildcards.min_distance}/sim{wildcards.sim}"
+        fig_dir = "figures/{prefix}/{norm}/{dim}_out/{min_neighbor}_{min_distance}/sim{sim}"
     shell: "python src/plot_umap_embeddings.py {input.data_f} {input.meta_f} {input.umap_f} {params.fig_dir} {wildcards.min_neighbor} {wildcards.min_distance}"
 
 
 rule run_cluster:
     input:
-        umap_f = "results/{norm}/{dim}_out/{min_neighbor}_{min_distance}/embedding_0.p"
+        umap_f = "results/{prefix}/{norm}/{dim}_out/{min_neighbor}_{min_distance}/embedding_0.p"
     output:
-        cluster_f = "results/{norm}/{dim}_out/{min_neighbor}_{min_distance}/{cluster}_out/{min_sample}_{min_cluster_size}.p",
-        f_save_fig = "figures/{norm,^[^/]+$}/{dim,^[^/]+$}_out/{min_neighbor}_{min_distance}/{cluster}_out/{min_sample}_{min_cluster_size}.png"
+        cluster_f = "results/{prefix}/{norm}/{dim}_out/{min_neighbor}_{min_distance}/{cluster}_out/{min_sample}_{min_cluster_size}.p",
+        f_save_fig = "figures/{prefix}/{norm,^[^/]+$}/{dim}_out/{min_neighbor}_{min_distance}/{cluster}_out/{min_sample}_{min_cluster_size}.png"
+    resources:
+        mem_mb=200000
     shell: "python src/clustering.py {input.umap_f} {output.cluster_f} {output.f_save_fig} {wildcards.cluster} {wildcards.min_sample} {wildcards.min_cluster_size}"
 
 
 rule plot_panels:
     input:
-        meta_f = "data/processed/meta.tsv",
-        cluster_f = "results/{norm}/{dim,^[^/]+$}_out/{min_neighbor}_{min_distance}/{cluster}_out/{min_sample}_{min_cluster_size}.p",
-        embedding_f = "results/{norm}/{dim}_out/{min_neighbor}_{min_distance}/embedding_0.p"
+        meta_f = "data/processed/{prefix}/tidy/meta.tsv",
+        cluster_f = "results/{prefix}/{norm}/{dim}_out/{min_neighbor}_{min_distance}/{cluster}_out/{min_sample}_{min_cluster_size}.p",
+        embedding_f = "results/{prefix}/{norm}/{dim}_out/{min_neighbor}_{min_distance}/embedding_0.p"
     output:
-        f_save = "figures/panels/{norm}/{dim}_out/{min_neighbor}_{min_distance}/{cluster}_out/{min_sample}_{min_cluster_size}/clusters_over_time.png"
+        f_save = "figures/{prefix}/panels/{norm}/{dim}_out/{min_neighbor}_{min_distance}/{cluster}_out/{min_sample}_{min_cluster_size}/clusters_over_time.png"
     run:
-        shell("python src/plot_panel_clusters.py {input.meta_f} {input.cluster_f} {input.embedding_f} {output.f_save}")
         shell("echo input:{input:q} output:{output} wildcards:{wildcards} > {output.f_save}.parameters")
+        shell("python src/plot_panel_clusters.py {input.meta_f} {input.cluster_f} {input.embedding_f} {output.f_save}")
 
+#For dim
+#,^[^/]+$
 
 # rule plot_umap_cluster:
 #     input:

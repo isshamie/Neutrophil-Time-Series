@@ -12,7 +12,7 @@ from scipy.stats import zscore
 import pickle
 from pandarallel import pandarallel
 import sys
-
+from scipy import stats
 pandarallel.initialize(nb_workers=36)
 
 
@@ -95,7 +95,7 @@ def wrap_quantile_norm(data, vars, out_dir=None, perc=0.75):
     return data
 
 
-def log_and_z(data_df, outdir, overwrite=True):
+def log_and_z(data_df, outdir, overwrite=True, outlier_z=3):
     if not overwrite:
         if os.path.exists(join(outdir, "data_df_log10_z.p")) and (os.path.exists(join(outdir, "data_df_log10.p"))
                 and os.path.exists(join(outdir, "data_df_z.p"))):
@@ -111,6 +111,19 @@ def log_and_z(data_df, outdir, overwrite=True):
     data_df_log_z = data_df_log.apply(zscore, axis=0)
     pickle.dump(data_df_log_z,
                 open(join(outdir, "data_df_log10_z.p"), "wb"))
+
+
+    # Remove outliers of over 3 zscore and then RENORMALIZE
+    data_df_log_z = data_df_log_z[(np.abs(stats.zscore(data_df_log_z)) < 3).all(axis=1)]
+
+    # Renormalize after removing outliers
+    #data_df_log_z = data_df_log_z.apply(zscore)
+
+    #print(data_df_log_z.mean())
+    # meta_df_withutoutliers = meta_df.copy()
+    # meta_df = meta_df.loc[data.index]
+    pickle.dump(data_df_log_z,
+                open(join(outdir, f"data_df_log10_z_out{outlier_z}.p"), "wb"))
     return
 
 
@@ -124,7 +137,7 @@ def main(data, outdir, transform, overwrite=True):
     cols = ["Sample", "Timepoint", "Stimuli"]
     cols = [c for c in cols if c in data_df.columns.values]
 
-    if (transform == "log10" or transform == "log10_z") or transform == "z":
+    if (transform == "log10" or transform == "log10_z") or (transform == "z" or transform=="log10_z_out3"):
         log_and_z(data_df.drop(cols,
             axis=1), outdir, overwrite=overwrite)
         print("logging the data and z-scoring")
